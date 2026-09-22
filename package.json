@@ -1,0 +1,26 @@
+{
+    "author": "issois",
+    "dependencies": {},
+    "keywords": [
+        "pebble-app"
+    ],
+    "name": "isowf01",
+    "pebble": {
+        "displayName": "issois watchface 01",
+        "enableMultiJS": true,
+        "messageKeys": [],
+        "projectType": "moddable",
+        "resources": {
+            "media": []
+        },
+        "sdkVersion": "3",
+        "targetPlatforms": [
+            "emery"
+        ],
+        "uuid": "53fd4631-77c6-4def-b3a2-2695dc9566e2",
+        "watchapp": {
+            "watchface": true
+        }
+    },
+    "version": "1.0.0"
+}
