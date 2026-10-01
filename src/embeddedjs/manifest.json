@@ -15,19 +15,19 @@
             },
             {
                 "source": "./assets/brit",
-                "size": 22,
+                "size": 30,
                 "monochrome": true,
                 "blocks": ["Basic Latin"]
             },
             {
                 "source": "./assets/seven",
-                "size": 22,
+                "size": 30,
                 "monochrome": true,
                 "blocks": ["Basic Latin"]
             },
             {
                 "source": "./assets/seven",
-                "size": 15,
+                "size": 23,
                 "monochrome": true,
                 "blocks": ["Basic Latin"]
             }

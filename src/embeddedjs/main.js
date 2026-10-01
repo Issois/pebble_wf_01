@@ -5,88 +5,102 @@ import parseRLE from "commodetto/parseRLE";
 import Resource from "Resource";
 import Battery from "embedded:sensor/Battery";
 
+// var Pebble = require('ui');
 const render=new Poco(screen);
 
-//const font_name="brit";
-
 const f_time=getFont("brit",70);
-const f_day=getFont("brit", 22);
-const f_date=getFont("seven", 22);
-const f_cw=getFont("seven", 15);
-
-
-
-
+const f_day=getFont("brit", 30);
+const f_date=getFont("seven", 30);
+const f_cw=getFont("seven", 23);
 
 // Colors
 const c_black=render.makeColor(  0,  0,  0);
 const c_white=render.makeColor(255,255,255);
-const c_red  =render.makeColor(255,  0,  0);
-const c_green=render.makeColor(  0,255,  0);
-const c_blue =render.makeColor(  0,  0,255);
-const c_work =render.makeColor( 16,  6,159);
-const c_free =render.makeColor( 16,  6,159);
-const c_sleep=render.makeColor( 16,  6,159);
-const c_sneak=render.makeColor( 16,  6,159);
-
 const color_bg=c_white;
 const color_fg=c_black;
+const COLORS=[
+	color_bg,
+	render.makeColor(255,  0,  0),
+	render.makeColor(  0,255,  0),
+	render.makeColor(  0,255,255),
+	render.makeColor(255,170,  0),
+];
+
+const DIRES=[
+	{x: 0,y:-1},
+	{x: 1,y: 0},
+	{x: 0,y: 1},
+	{x:-1,y: 0}
+]
+
+
+const MINUTES_PER_DAY=24*60;
+
 
 const DAYS=["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
+// const DAYS=[7,1,2,3,4,5,6];
 
 const change="minutechange"
-//const change="secondchange"
+// const change="secondchange"
 const battery=new Battery({});
 
-
-// let batteryPercent=100;
-// let isConnected=true;
-// let lastDate=new Date();
-
-// function drawFromTime(event){watchface.draw(event,"Time");}
-// function drawFromBattery(event){watchface.draw(event,"Bat");}
-// function drawFromConnected(event){watchface.draw(event,"Con"
-// );}
-
-
-
-// watch.addEventListener("connected", drawFromConnected);
-
-
+// const PX_COUNT=4;
+// const PX_RESOLUTION=15;
+const RESOLUTION={x:15,y:19}
 
 
 class Watchface{
 	constructor(){
 		this.display=new Rect({x:0,y:0,dx:render.width,dy:render.height});
-		// this.counter=0;
+		this.gridSize={nx:Math.ceil(this.display.dx/RESOLUTION.x),ny:Math.ceil(this.display.dy/RESOLUTION.y)};
+		console.log(`disp: ${this.display.dx}x${this.display.dy}, Res=${RESOLUTION.x}x${RESOLUTION.y}, grid:${this.gridSize.nx}x${this.gridSize.ny}`);
 		this.lastDate=new Date();
 		this.batteryPercent=battery.sample().percent;
+		this.initRects();
+		// this.counter=0;
+		this.position=new Array(COLORS.length);
+		this.direction=new Array(COLORS.length);
+		this.grid=new Array(this.gridSize.nx);
+		for(let gx=0;gx<this.grid.length;gx++){
+			this.grid[gx]=new Array(this.gridSize.ny);
+			for(let gy=0;gy<this.grid[gx].length;gy++){
+				this.grid[gx][gy]=0;
+			}
+		}
+		for(let i=1;i<this.position.length;i++){
+			let pos={x:getRandomInt(0,this.gridSize.nx),y:getRandomInt(0,this.gridSize.nx)};
+			this.position[i]=pos;
+			this.direction[i]=getRandomInt(0,DIRES.length);
+			this.grid[pos.x][pos.y]=i;
+		}
+
+
 	}
 
+	initRects(){
+		this.rect_time=new Rect().fromText(this.timeString(),f_time).positionRelativeTo(this.display,CEN,CEN);
+		this.rect_date   =new Rect().fromText(this.dateString(), f_date).positionRelativeTo(this.rect_time,CEN,ALE).offset(-30,0);
+		this.rect_cw     =new Rect().fromText(this.cwString(), f_cw).positionRelativeTo(this.rect_date,ALE,CEN).offset(20,0);
+		this.rect_day={}
 
-	getTexts(){
+		for(let i=0;i<DAYS.length;i++){
+			this.rect_day[i]=new Rect().fromText(DAYS[i],f_day).positionRelativeTo(this.rect_time,CEN,BFE);
+		}
 
-		const hours=String(this.lastDate.getHours()).padStart(2,"0");
-		const minutes=String(this.lastDate.getMinutes()).padStart(2,"0");
-		const hm=hours+":"+minutes;
+		this.rect_battery=new Rect().fromText("__%",f_cw).positionRelativeTo(this.display,BLE,AFE).offset(-12,7);
+		this.rectBtOff=new Rect({dx:17,dy:17}).positionRelativeTo(this.display,AFE,AFE).offset(10,10);
+		this.rectBtOn=new Rect({dx:15,dy:15}).positionRelativeTo(this.rectBtOff,CEN,CEN);
 
-		const date=String(this.lastDate.getDate()).padStart(2,"0")
-		const month=String(this.lastDate.getMonth()+1).padStart(2,"0")
-		const dm=date+"."+month;
-
-		const cw="KW"+String(weekNumber(this.lastDate)).padStart(2,"0");
-
-		const day=DAYS[this.lastDate.getDay()];
-
-		const bat=this.batteryPercent.toString()+"%";
-
-		this.rect_time   =new Rect().fromText(hm, f_time);
-		this.rect_day    =new Rect().fromText(day,f_day);
-		this.rect_date   =new Rect().fromText(dm, f_date);
-		this.rect_cw     =new Rect().fromText(cw, f_cw);
-		this.rect_battery=new Rect().fromText(bat,f_cw);
 	}
 
+	renderTexts(){
+		this.rect_time .drawText(color_fg ,this.timeString(),color_bg);
+		this.rect_date .drawText(color_fg ,this.dateString(),color_bg);
+		this.rect_cw   .drawText(color_fg ,this.cwString(),color_bg);
+		const day=this.lastDate.getDay();
+		this.rect_day[day].drawText(color_fg,DAYS[day],color_bg);
+		this.rect_battery   .drawText(color_fg ,this.batString(),color_bg);
+	}
 
 
 	draw(event,source){
@@ -99,41 +113,96 @@ class Watchface{
 
 	draw_internal(event,source="?"){
 		// this.counter++;
-
 		this.batteryPercent=battery.sample().percent;
-		// this.isConnected=watch.connected.app;
-		// this.batteryPercent=battery.sample().percent;
-		// this.lastDate;
+		if(event?.date){this.lastDate=event.date;}
+		// this.lastDate=new Date(this.lastDate.getTime()+(this.counter*60*1000));
 
-		if(event?.date){
-		  this.lastDate=event.date;
+		// update grid
+		// console.log("p: "+this.direction.toString())
+		if(source=="Time"){
+			for(let pos=1;pos<this.position.length;pos++){
+				// console.log("p: "+pos.toString())
+				let direChange=getRandomInt(-1,2);
+				this.direction[pos]=mod(this.direction[pos]+direChange,DIRES.length);
+				this.position[pos].x=mod(this.position[pos].x+DIRES[this.direction[pos]].x,this.gridSize.nx);
+				this.position[pos].y=mod(this.position[pos].y+DIRES[this.direction[pos]].y,this.gridSize.ny);
+				// console.log(pos.toString()+" "+this.position[pos].x.toString()+" "+this.position[pos].y.toString())
+				this.grid[this.position[pos].x][this.position[pos].y]=pos;
+			}
 		}
-
-		this.getTexts();
 
 		render.begin();
-		this.display.fillRectangle(color_bg);
-		this.rect_time.positionRelativeTo(this.display,CEN,CEN).drawText(color_fg);
-		this.rect_day.positionRelativeTo(this.rect_time,CEN,BFE).drawText(color_fg);
-		this.rect_date.positionRelativeTo(this.rect_time,CEN,ALE).drawText(color_fg);
-		this.rect_cw.positionRelativeTo(this.rect_date,ALE,CEN).offset(10,0).drawText(color_fg);
-		this.rect_battery.positionRelativeTo(this.display,BLE,AFE).offset(-12,7).drawText(color_fg);
-		   
-		new Rect({dy:15,dx:this.display.dx*(this.batteryPercent/100)}).positionRelativeTo(this.display,AFE,BLE).fillRectangle(color_fg);
-		
-		if(watch.connected?.app){
-		   new Rect({dx:15,dy:15}).positionRelativeTo(this.display,AFE,AFE).offset(10,10).fillRectangle(color_fg);
+
+		for(let gx=0;gx<this.gridSize.nx;gx++){
+			for(let gy=0;gy<this.gridSize.ny;gy++){
+				render.fillRectangle(COLORS[this.grid[gx][gy]],gx*RESOLUTION.x,gy*RESOLUTION.y,RESOLUTION.x,RESOLUTION.y);
+			}
 		}
-		
+
+  		this.renderTexts()
+
+		this.rectBtOff.fillRectangle(color_bg);
+		if(watch.connected?.app){
+			this.rectBtOn.fillRectangle(color_fg);
+		}
+
 		render.end();
 	}
+
+	getDayCompleted(){
+		const result=(this.lastDate.getMinutes()+(60*this.lastDate.getHours()))*1.0/MINUTES_PER_DAY;
+		// console.log("day.completed: "+result.toString());
+		return result
+
+	}
+	dateString(){return String(this.lastDate.getDate()).padStart(2,"0")+"."+String(this.lastDate.getMonth()+1).padStart(2,"0");}
+	timeString(){return String(this.lastDate.getHours()).padStart(2,"0")+":"+String(this.lastDate.getMinutes()).padStart(2,"0");}
+	cwString(){return "KW"+String(weekNumber(this.lastDate)).padStart(2,"0");}
+	batString(){return this.batteryPercent.toString()+"%";}
+
+
 }
 
+function mod(n,d){
+	return ((n % d) + d) % d;
+}
 
-// function drawConnectedState(){
-//     if(isConnected){
-//         render.fillRectangle(color_fg,3,3,10,10);
+// function rand(a,b){
+// 	return (Math.random()*(b-a))+a;
+// }
+
+function getRandomInt(min,max) {
+  const minCeiled = Math.ceil(min);
+  const maxFloored = Math.floor(max);
+  return Math.floor(Math.random() * (maxFloored - minCeiled) + minCeiled);
+}
+
+// function hsv64(t) {
+//     t = ((t % 1) + 1) % 1;
+
+//     // Continuous HSV → RGB
+//     const h = t * 6;
+//     const i = Math.floor(h);
+//     const f = h - i;
+//     const q = 1 - f;
+
+//     let r, g, b;
+
+//     switch (i) {
+//         case 0: r = 1; g = f; b = 0; break;
+//         case 1: r = q; g = 1; b = 0; break;
+//         case 2: r = 0; g = 1; b = f; break;
+//         case 3: r = 0; g = q; b = 1; break;
+//         case 4: r = f; g = 0; b = 1; break;
+//         default: r = 1; g = 0; b = q; break;
 //     }
+
+//     // Quantize to Pebble's 4 levels per channel
+//     r = Math.round(r * 3) * 85;
+//     g = Math.round(g * 3) * 85;
+//     b = Math.round(b * 3) * 85;
+
+//     return [r, g, b];
 // }
 
 
@@ -174,8 +243,24 @@ class Rect{
 		return this;
 	}
 
-	drawText(color){
+	drawText(color,text=null,colorOutline=null,outlineThickness=2){
+		if(text!=null){
+			this.text=text;
+		}
+		if(colorOutline!=null){
+			for(let offs=1;offs<=outlineThickness;offs++){
+				render.drawText(this.text,this.font,colorOutline,this.x+offs,this.y);
+				render.drawText(this.text,this.font,colorOutline,this.x-offs,this.y);
+				render.drawText(this.text,this.font,colorOutline,this.x,this.y+offs);
+				render.drawText(this.text,this.font,colorOutline,this.x,this.y-offs);
+				// render.drawText(this.text,this.font,colorOutline,this.x+offs,this.y+offs);
+				// render.drawText(this.text,this.font,colorOutline,this.x-offs,this.y+offs);
+				// render.drawText(this.text,this.font,colorOutline,this.x+offs,this.y-offs);
+				// render.drawText(this.text,this.font,colorOutline,this.x-offs,this.y-offs);
+			}
+		}
 		render.drawText(this.text,this.font,color,this.x,this.y);
+
 		return this;
 	}
 
